@@ -1,4 +1,4 @@
-name:                prettyTree
+name:                pretty-tree
 version:             0.1.0.0
 synopsis:            Pretty-print trees
 description:         Alternative pretty-printing functions for Data.Tree.
