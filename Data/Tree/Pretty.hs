@@ -69,7 +69,7 @@ Also consider the @Diagrams.TwoD.Layout.Tree@ module from
 <http://hackage.haskell.org/package/diagrams-contrib>
 
  -}
-module Data.Tree.PrettyPrint
+module Data.Tree.Pretty
        ( -- * Drawing trees
          drawVerticalTree
        , drawVerticalTreeWith
