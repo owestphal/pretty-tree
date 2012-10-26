@@ -5,13 +5,78 @@
    License     : 3-Clause BSD-style
    Maintainer  : Ivan.Miljenovic@gmail.com
 
+"Data.Tree" exports 'drawTree' and 'drawForest', which provide 2D
+pretty-printing of rose-trees, but in a left-to-right fashion.
+
+The functions here draw trees more \"naturally\" in a top-down fashion.
+
+For example, consider the following tree:
+
+> tree :: Tree String
+> tree = Node "hello" [ Node "foo" []
+>                     , Node "bars" [ Node "oi!" []
+>                                   , Node "baz" [ Node "a" [ Node "b" []
+>                                                           , Node "c" []]
+>                                                , Node "d" [ Node "e" []]]]
+>                     , Node "foobar" []]
+
+Comparing 'drawTree' and 'drawVerticalTree':
+
+>>> putStrLn $ drawTree tree
+hello
+|
++- foo
+|
++- bars
+|  |
+|  +- oi!
+|  |
+|  `- baz
+|     |
+|     +- a
+|     |  |
+|     |  +- b
+|     |  |
+|     |  `- c
+|     |
+|     `- d
+|        |
+|        `- e
+|
+`- foobar
+
+>>> putStrLn $ drawVerticalTree
+          hello
+            |
+  -------------------
+ /        |          \
+foo      bars      foobar
+          |
+       ------
+      /      \
+     oi!    baz
+             |
+            ----
+           /    \
+           a    d
+           |    |
+           --   e
+          /  \
+          b  c
+
  -}
 module Data.Tree.PrettyPrint
-       ( drawVerticalTree
+       ( -- * Drawing trees
+         drawVerticalTree
        , drawVerticalTreeWith
+         -- * Drawing forests
        , drawVerticalForest
        , drawVerticalForestWith
+         -- * Widths of gaps between trees.
        , Width
+       , defaultGap
+         -- * Helper functions
+       , treeToBox
        ) where
 
 import Data.Tree
@@ -20,20 +85,6 @@ import Text.PrettyPrint.Boxes
 import Control.Monad(ap, liftM2)
 
 -- -----------------------------------------------------------------------------
-
-type Width = Int
-
-defaultGap :: Width
-defaultGap = 2
-
-data WidthLabel = WL { trWidth :: Width
-                     , numSub  :: Int
-                     , label   :: String
-                     }
-                deriving (Eq, Ord, Show, Read)
-
-type WidthTree = Tree WidthLabel
-type WidthForest = Forest WidthLabel
 
 -- | Draw a tree top-down.
 drawVerticalTree :: Tree String -> String
@@ -55,8 +106,30 @@ drawVerticalForestWith gp = render . hsep gp top . map (treeToBox gp)
 checkGap :: Width -> Width
 checkGap = max 1
 
+-- | This is exported in case you want to do further pretty-printing
+--   using "Text.PrettyPrint.Boxes".
 treeToBox :: Width -> Tree String -> Box
 treeToBox = liftM2 (.) treeBox addWidthTree . checkGap
+
+-- | The size of the gap to use.  It is recommended that you use a
+--   value @>=2@ for best results (with @2@ being the default).
+type Width = Int
+
+defaultGap :: Width
+defaultGap = 2
+
+-- -----------------------------------------------------------------------------
+-- Pre-processing
+
+-- | We need to know how wide the tree is.
+data WidthLabel = WL { trWidth :: Width
+                     , numSub  :: Int
+                     , label   :: String
+                     }
+                deriving (Eq, Ord, Show, Read)
+
+type WidthTree = Tree WidthLabel
+type WidthForest = Forest WidthLabel
 
 addWidthTree :: Width -> Tree String -> WidthTree
 addWidthTree gp (Node str ts) = Node (WL w ns str) ts'
@@ -68,20 +141,8 @@ addWidthTree gp (Node str ts) = Node (WL w ns str) ts'
 addWidthsForest    :: Width -> Forest String -> WidthForest
 addWidthsForest gp = map (addWidthTree gp)
 
-treeWidth :: WidthTree -> Width
-treeWidth = trWidth . rootLabel
-
-forestWidth    :: Width -> WidthForest -> Width
-forestWidth gp = sum . intersperse gp . map treeWidth
-
-drawLabel :: WidthLabel -> Box
-drawLabel = text . label
-
--- | The width between the vertical lines coming into neighbouring sub-trees.
-interTreeSpacing    :: Width -> WidthForest -> [Width]
-interTreeSpacing gp = (zipWith go `ap` tail) . map (pred . trWidth . rootLabel)
-  where
-    go l r = (l `divUp` 2) + gp + (r `div` 2)
+-- -----------------------------------------------------------------------------
+-- Drawing
 
 treeBox :: Width -> WidthTree -> Box
 treeBox gp (Node lbl ts)
@@ -93,7 +154,7 @@ treeBox gp (Node lbl ts)
   where
     numTs = numSub lbl
 
-    lbl' = drawLabel lbl
+    lbl' = text $ label lbl
 
     lnWidth = sum (interTreeSpacing gp ts) + numTs -- + the vertical lines
 
@@ -111,7 +172,19 @@ treeBox gp (Node lbl ts)
             | n == numTs = rBranch
             | otherwise  = vLine
 
+treeWidth :: WidthTree -> Width
+treeWidth = trWidth . rootLabel
 
+forestWidth    :: Width -> WidthForest -> Width
+forestWidth gp = sum . intersperse gp . map treeWidth
+
+-- | The width between the vertical lines coming into neighbouring sub-trees.
+interTreeSpacing    :: Width -> WidthForest -> [Width]
+interTreeSpacing gp = (zipWith go `ap` tail) . map (pred . trWidth . rootLabel)
+  where
+    go l r = (l `divUp` 2) + gp + (r `div` 2)
+
+-- -----------------------------------------------------------------------------
 
 vLine :: Box
 vLine = char '|'
