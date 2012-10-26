@@ -1,5 +1,5 @@
 {- |
-   Module      : Data.Tree.PrettyPrint
+   Module      : Data.Tree.Pretty
    Description : Pretty-print trees.
    Copyright   : (c) Ivan Lazar Miljenovic
    License     : 3-Clause BSD-style

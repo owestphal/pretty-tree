@@ -16,5 +16,5 @@ source-repository head
   location:       http://hub.darcs.net/ivanm/pretty-tree
 
 library
-  exposed-modules:     Data.Tree.PrettyPrint
+  exposed-modules:     Data.Tree.Pretty
   build-depends:       base < 5, containers, boxes >= 0.1.1 && < 0.2
