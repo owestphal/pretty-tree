@@ -64,6 +64,10 @@ foo      bars      foobar
           /  \
           b  c
 
+Also consider the @Diagrams.TwoD.Layout.Tree@ module from
+/diagrams-contrib/ for actual image rendering of rose-trees:
+<http://hackage.haskell.org/package/diagrams-contrib>
+
  -}
 module Data.Tree.PrettyPrint
        ( -- * Drawing trees
