@@ -152,9 +152,7 @@ treeBox :: Width -> WidthTree -> Box
 treeBox gp (Node lbl ts)
   = case ts of
       []  -> lbl'
-             -- Three vLines to get the gap right.
-      [t] -> vcat' [lbl', vLine, treeBox gp t]
-      _   -> vcat' [lbl', vLine, lnTs]
+      _   -> hdr // ts'
   where
     numTs = numSub lbl
 
@@ -164,15 +162,18 @@ treeBox gp (Node lbl ts)
 
     iniGp = (`div` 2) . pred . trWidth . rootLabel $ head ts
 
-    ln = moveRight (iniGp + 1) $ hcat top (replicate (lnWidth - 2) hLine)
+    ln
+      | numTs == 1 = nullBox
+      | otherwise  = moveRight 1 $ hcat top (replicate (lnWidth - 2) hLine)
 
     ts' = hsep gp top $ zipWith subT [1..] ts
 
-    lnTs = ln // ts'
+    hdr = moveRight iniGp $ vcat' [lbl', vLine, ln]
 
     subT n t = vcat' [vln, treeBox gp t]
       where
-        vln | n == 1     = lBranch
+        vln | numTs == 1 = nullBox
+            | n == 1     = lBranch
             | n == numTs = rBranch
             | otherwise  = vLine
 
