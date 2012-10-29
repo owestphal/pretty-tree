@@ -77,15 +77,16 @@ module Data.Tree.Pretty
          -- * Drawing forests
        , drawVerticalForest
        , drawVerticalForestWith
-         -- * Widths of gaps between trees.
-       , Width
-       , defaultGap
+         -- * Custom configuration
+       , VTConfig(..)
+       , defaultVTC
          -- * Helper functions
        , treeToBox
        ) where
 
 import Data.Tree
-import Data.List(intersperse)
+
+import Data.Maybe(listToMaybe)
 import Text.PrettyPrint.Boxes
 import Control.Monad(ap, liftM2)
 
@@ -93,102 +94,145 @@ import Control.Monad(ap, liftM2)
 
 -- | Draw a tree top-down.
 drawVerticalTree :: Tree String -> String
-drawVerticalTree = drawVerticalTreeWith defaultGap
+drawVerticalTree = drawVerticalTreeWith defaultVTC
 
 -- | Draw a tree top-down using the specified gap between sub-trees.
-drawVerticalTreeWith    :: Width -> Tree String -> String
-drawVerticalTreeWith gp = render . treeToBox gp
+drawVerticalTreeWith    :: VTConfig -> Tree String -> String
+drawVerticalTreeWith cf = render . treeToBox cf
 
 -- | Draw a forest with each tree being top-down.
 drawVerticalForest :: Forest String -> String
-drawVerticalForest = drawVerticalForestWith defaultGap
+drawVerticalForest = drawVerticalForestWith defaultVTC
 
 -- | Draw a forest with each tree being top-down and the specified
 --    horizontal gap between trees.
-drawVerticalForestWith    :: Width -> Forest String -> String
-drawVerticalForestWith gp = render . hsep gp top . map (treeToBox gp)
+drawVerticalForestWith    :: VTConfig -> Forest String -> String
+drawVerticalForestWith cf = render . hsep (treeGap cf) top . map (treeToBox cf)
 
-checkGap :: Width -> Width
-checkGap = max 1
+checkGap    :: VTConfig -> VTConfig
+checkGap cf = cf { treeGap = max 1 $ treeGap cf }
+
+data VTConfig = VTC { -- | Specify whether to use \"prettier\" angled
+                      --   lines for the first/last sub-tree or not.
+                      --   You may wish to set this to 'False' if
+                      --   using primarily binary trees with small
+                      --   labels.
+                      useAngledLines :: Bool
+                      -- | The spacing to use between sub-trees.  It
+                      --   is recommended that you use a value @>=2@
+                      --   for best results.  If a value @<=0@ is
+                      --   specified, then a width of @1@ is used.
+                    , treeGap :: Int
+                    }
+              deriving (Eq, Ord, Show, Read)
+
+-- | By default, use angled lines and a gap of @2@.
+defaultVTC :: VTConfig
+defaultVTC = VTC True 2
 
 -- | This is exported in case you want to do further pretty-printing
 --   using "Text.PrettyPrint.Boxes".
-treeToBox :: Width -> Tree String -> Box
+treeToBox :: VTConfig -> Tree String -> Box
 treeToBox = liftM2 (.) treeBox addWidthTree . checkGap
-
--- | The size of the gap to use.  It is recommended that you use a
---   value @>=2@ for best results (with @2@ being the default).
-type Width = Int
-
-defaultGap :: Width
-defaultGap = 2
 
 -- -----------------------------------------------------------------------------
 -- Pre-processing
 
+type Width = Int
+
 -- | We need to know how wide the tree is.
-data WidthLabel = WL { trWidth :: Width
-                     , numSub  :: Int
-                     , label   :: String
+data WidthLabel = WL { leftWidth      :: !Width -- width left of bar from root
+                     , rightWidth     :: !Width -- width right of bar from root
+                       -- Tree width = leftWidth = rightWidth + 1 (for bar)
+                     , lineWidth      :: !Width -- width of line for subtrees
+                     , headerIndent   :: !Width
+                     , subTreesIndent :: !Width -- For when labelWidth > lineWidth
+                     , numSubTrees    :: !Int
+                     , label          :: !String
                      }
                 deriving (Eq, Ord, Show, Read)
 
 type WidthTree = Tree WidthLabel
 type WidthForest = Forest WidthLabel
 
-addWidthTree :: Width -> Tree String -> WidthTree
-addWidthTree gp (Node str ts) = Node (WL w ns str) ts'
+addWidthTree :: VTConfig -> Tree String -> WidthTree
+addWidthTree cf (Node str ts) = Node lbl ts'
   where
-    ts' = addWidthsForest gp ts
-    ns = length ts
-    w = length str `max` forestWidth gp ts'
+    ts' = addWidthsForest cf ts
+    numTs = length ts
+    lblW = length str
+    lblWL = widthLeft lblW
+    lnW = sum (interTreeSpacing cf ts') + numTs -- + the vertical lines
+    lnWL = widthLeft lnW
+    hdW = lblW `max` lnW
+    wLeftOfLine = maybe 0 (leftWidth . rootLabel) $ listToMaybe ts'
+    subWL = wLeftOfLine + lnWL
 
-addWidthsForest    :: Width -> Forest String -> WidthForest
-addWidthsForest gp = map (addWidthTree gp)
+    hdInd = nonNeg $ subWL - widthLeft hdW
+    stInd = nonNeg $ lblWL - subWL
+
+    wRightOfLine = maybe 0 (rightWidth . rootLabel) . listToMaybe $ reverse ts'
+
+    lbl = WL { leftWidth      = lblWL `max` subWL
+             , rightWidth     = (widthRight lblW) `max` (widthRight lnW + wRightOfLine)
+             , lineWidth      = lnW
+             , headerIndent   = hdInd
+             , subTreesIndent = stInd
+             , numSubTrees    = numTs
+             , label          = str
+             }
+
+addWidthsForest    :: VTConfig -> Forest String -> WidthForest
+addWidthsForest cf = map (addWidthTree cf)
+
+widthLeft :: Width -> Width
+widthLeft = (`div` 2) . pred
+
+widthRight :: Width -> Width
+widthRight = (`divUp` 2) . pred
+
+-- | The width between the vertical lines coming into neighbouring sub-trees.
+interTreeSpacing    :: VTConfig -> WidthForest -> [Width]
+interTreeSpacing cf = (zipWith go `ap` tail) . map rootLabel
+  where
+    go lt rt = rightWidth lt + treeGap cf + leftWidth rt
 
 -- -----------------------------------------------------------------------------
 -- Drawing
 
-treeBox :: Width -> WidthTree -> Box
-treeBox gp (Node lbl ts)
+treeBox :: VTConfig -> WidthTree -> Box
+treeBox cf (Node lbl ts)
   = case ts of
       []  -> lbl'
       _   -> hdr // ts'
   where
-    numTs = numSub lbl
+    numTs = numSubTrees lbl
 
     lbl' = text $ label lbl
 
-    lnWidth = sum (interTreeSpacing gp ts) + numTs -- + the vertical lines
+    angled = useAngledLines cf
 
-    iniGp = (`div` 2) . pred . trWidth . rootLabel $ head ts
+    lnWidth = lineWidth lbl
 
     ln
       | numTs == 1 = nullBox
-      | otherwise  = moveRight 1 $ hcat top (replicate (lnWidth - 2) hLine)
+      | angled     = space <> hcat top (replicate (lnWidth - 2) hLine) <> space
+      | otherwise  = hcat top $ replicate lnWidth hLine
 
-    ts' = hsep gp top $ zipWith subT [1..] ts
+    ts' = moveRight (subTreesIndent lbl)
+          . hsep (treeGap cf) top $ zipWith subT [1..] ts
 
-    hdr = moveRight iniGp $ vcat' [lbl', vLine, ln]
+    hdr = moveRight (headerIndent lbl) $ vcat' [lbl', vLine, ln]
 
-    subT n t = vcat' [vln, treeBox gp t]
+    subT n t = vln' // treeBox cf t
       where
         vln | numTs == 1 = nullBox
+            | not angled = vLine
             | n == 1     = lBranch
             | n == numTs = rBranch
             | otherwise  = vLine
 
-treeWidth :: WidthTree -> Width
-treeWidth = trWidth . rootLabel
-
-forestWidth    :: Width -> WidthForest -> Width
-forestWidth gp = sum . intersperse gp . map treeWidth
-
--- | The width between the vertical lines coming into neighbouring sub-trees.
-interTreeSpacing    :: Width -> WidthForest -> [Width]
-interTreeSpacing gp = (zipWith go `ap` tail) . map (pred . trWidth . rootLabel)
-  where
-    go l r = (l `divUp` 2) + gp + (r `div` 2)
+        vln' = moveRight (leftWidth $ rootLabel t) vln
 
 -- -----------------------------------------------------------------------------
 
@@ -204,8 +248,14 @@ lBranch = char '/'
 rBranch :: Box
 rBranch = char '\\'
 
-divUp :: Int -> Int -> Int
-a `divUp` b = negate $ (-a) `div` b
+space :: Box
+space = emptyBox 1 1
 
 vcat' :: [Box] -> Box
 vcat' = vcat center1
+
+divUp :: Int -> Int -> Int
+a `divUp` b = negate $ (-a) `div` b
+
+nonNeg :: Int -> Int
+nonNeg = max 0
