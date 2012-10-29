@@ -82,6 +82,7 @@ module Data.Tree.Pretty
        , defaultVTC
          -- * Helper functions
        , treeToBox
+       , treeToBox'
        ) where
 
 import Data.Tree
@@ -132,8 +133,13 @@ defaultVTC = VTC True 2
 
 -- | This is exported in case you want to do further pretty-printing
 --   using "Text.PrettyPrint.Boxes".
-treeToBox :: VTConfig -> Tree String -> Box
-treeToBox = liftM2 (.) treeBox addWidthTree . checkGap
+treeToBox    :: VTConfig -> Tree String -> Box
+treeToBox cf = treeToBox' cf . fmap text
+
+-- | As with 'treeToBox', but allowing for more precise control over
+--   label formatting (multiple lines, etc.).
+treeToBox' :: VTConfig -> Tree Box -> Box
+treeToBox' = liftM2 (.) treeBox addWidthTree . checkGap
 
 -- -----------------------------------------------------------------------------
 -- Pre-processing
@@ -148,19 +154,19 @@ data WidthLabel = WL { leftWidth      :: !Width -- width left of bar from root
                      , headerIndent   :: !Width
                      , subTreesIndent :: !Width -- For when labelWidth > lineWidth
                      , numSubTrees    :: !Int
-                     , label          :: !String
+                     , label          :: !Box
                      }
-                deriving (Eq, Ord, Show, Read)
+                deriving (Show)
 
 type WidthTree = Tree WidthLabel
 type WidthForest = Forest WidthLabel
 
-addWidthTree :: VTConfig -> Tree String -> WidthTree
+addWidthTree :: VTConfig -> Tree Box -> WidthTree
 addWidthTree cf (Node str ts) = Node lbl ts'
   where
     ts' = addWidthsForest cf ts
     numTs = length ts
-    lblW = length str
+    lblW = cols str
     lblWL = widthLeft lblW
     lnW = sum (interTreeSpacing cf ts') + numTs -- + the vertical lines
     lnWL = widthLeft lnW
@@ -182,7 +188,7 @@ addWidthTree cf (Node str ts) = Node lbl ts'
              , label          = str
              }
 
-addWidthsForest    :: VTConfig -> Forest String -> WidthForest
+addWidthsForest    :: VTConfig -> Forest Box -> WidthForest
 addWidthsForest cf = map (addWidthTree cf)
 
 widthLeft :: Width -> Width
@@ -208,7 +214,7 @@ treeBox cf (Node lbl ts)
   where
     numTs = numSubTrees lbl
 
-    lbl' = text $ label lbl
+    lbl' = label lbl
 
     angled = useAngledLines cf
 
