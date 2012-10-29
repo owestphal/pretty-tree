@@ -20,7 +20,8 @@ For example, consider the following tree:
 >                                                , Node "d" [ Node "e" []]]]
 >                     , Node "foobar" []]
 
-Comparing 'drawTree' and 'drawVerticalTree':
+Comparing 'drawTree' and 'drawVerticalTree' (note that the former is
+"reflected" in the latter by a diagonal):
 
 >>> putStrLn $ drawTree tree
 hello
@@ -45,7 +46,7 @@ hello
 |
 `- foobar
 
->>> putStrLn $ drawVerticalTree
+>>> putStrLn $ drawVerticalTree tree
           hello
             |
   -------------------
