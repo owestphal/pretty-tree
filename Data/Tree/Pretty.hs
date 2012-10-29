@@ -10,60 +10,96 @@ pretty-printing of rose-trees, but in a left-to-right fashion.
 
 The functions here draw trees more \"naturally\" in a top-down fashion.
 
-For example, consider the following tree:
+For example, consider the following tree, based upon the GHC pipeline
+shown in <http://www.aosabook.org/en/ghc.html#fig.ghc.pipeline> :
 
-> tree :: Tree String
-> tree = Node "hello" [ Node "foo" []
->                     , Node "bars" [ Node "oi!" []
->                                   , Node "baz" [ Node "a" [ Node "b" []
->                                                           , Node "c" []]
->                                                , Node "d" [ Node "e" []]]]
->                     , Node "foobar" []]
+> ghcPhases :: Tree String
+> ghcPhases = Node "<M.hs>"
+>               [ Node "Parse"
+>                   [ Node "Typecheck"
+>                       [ Node "Desugar"
+>                           [ Node "Simplify"
+>                               [ Node "CoreTidy"
+>                                   [ Node "CorePrep"
+>                                       [ Node "Convert to STG"
+>                                           [ Node "Code generation"
+>                                               [ Node "Pretty-print C code"
+>                                                   [ Node "<M.hc>" []]
+>                                               , Node "Generate machine code"
+>                                                   [ Node "<M.s>" []]
+>                                               , Node "Generate LLVM code"
+>                                                   [ Node "<M.ll>" []]]]]
+>                                   , Node "Convert to IfaceSyn"
+>                                       [ Node "Serialise"
+>                                           [ Node "<M.hi>" []]]]]]]]]
+>
 
 Comparing 'drawTree' and 'drawVerticalTree' (note that the former is
 "reflected" in the latter by a diagonal):
 
->>> putStrLn $ drawTree tree
-hello
+>>> putStrLn $ drawTree ghcPhases
+<M.hs>
 |
-+- foo
-|
-+- bars
-|  |
-|  +- oi!
-|  |
-|  `- baz
-|     |
-|     +- a
-|     |  |
-|     |  +- b
-|     |  |
-|     |  `- c
-|     |
-|     `- d
-|        |
-|        `- e
-|
-`- foobar
-
->>> putStrLn $ drawVerticalTree tree
-          hello
+`- Parse
+   |
+   `- Typecheck
+      |
+      `- Desugar
+         |
+         `- Simplify
             |
-  -------------------
- /        |          \
-foo      bars      foobar
-          |
-       ------
-      /      \
-     oi!    baz
-             |
-            ----
-           /    \
-           a    d
-           |    |
-           --   e
-          /  \
-          b  c
+            `- CoreTidy
+               |
+               +- CorePrep
+               |  |
+               |  `- Convert to STG
+               |     |
+               |     `- Code generation
+               |        |
+               |        +- Pretty-print C code
+               |        |  |
+               |        |  `- <M.hc>
+               |        |
+               |        +- Generate machine code
+               |        |  |
+               |        |  `- <M.s>
+               |        |
+               |        `- Generate LLVM code
+               |           |
+               |           `- <M.ll>
+               |
+               `- Convert to IfaceSyn
+                  |
+                  `- Serialise
+                     |
+                     `- <M.hi>
+
+>>> putStrLn $ drawVerticalTree ghcPhases
+                                                 <M.hs>
+                                                   |
+                                                 Parse
+                                                   |
+                                               Typecheck
+                                                   |
+                                                Desugar
+                                                   |
+                                                Simplify
+                                                   |
+                                                CoreTidy
+                                                   |
+                               ------------------------------------------
+                              /                                          \
+                           CorePrep                             Convert to IfaceSyn
+                              |                                          |
+                        Convert to STG                               Serialise
+                              |                                          |
+                       Code generation                                 <M.hi>
+                              |
+          ------------------------------------------
+         /                     |                    \
+Pretty-print C code  Generate machine code  Generate LLVM code
+         |                     |                    |
+       <M.hc>                <M.s>                <M.ll>
 
 Also consider the @Diagrams.TwoD.Layout.Tree@ module from
 /diagrams-contrib/ for actual image rendering of rose-trees:
@@ -265,3 +301,23 @@ a `divUp` b = negate $ (-a) `div` b
 
 nonNeg :: Int -> Int
 nonNeg = max 0
+
+_ghcPhases :: Tree String
+_ghcPhases = Node "<M.hs>"
+               [ Node "Parse"
+                   [ Node "Typecheck"
+                       [ Node "Desugar"
+                           [ Node "Simplify"
+                               [ Node "CoreTidy"
+                                   [ Node "CorePrep"
+                                       [ Node "Convert to STG"
+                                           [ Node "Code generation"
+                                               [ Node "Pretty-print C code"
+                                                   [ Node "<M.hc>" []]
+                                               , Node "Generate machine code"
+                                                   [ Node "<M.s>" []]
+                                               , Node "Generate LLVM code"
+                                                   [ Node "<M.ll>" []]]]]
+                                   , Node "Convert to IfaceSyn"
+                                       [ Node "Serialise"
+                                           [ Node "<M.hi>" []]]]]]]]]
