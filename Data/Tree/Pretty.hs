@@ -121,6 +121,8 @@ module Data.Tree.Pretty
        , treeToBox'
        ) where
 
+import Prelude hiding ((<>))
+
 import Data.Tree
 
 import Data.Maybe(listToMaybe)
@@ -170,7 +172,9 @@ defaultVTC = VTC True 2
 -- | This is exported in case you want to do further pretty-printing
 --   using "Text.PrettyPrint.Boxes".
 treeToBox    :: VTConfig -> Tree String -> Box
-treeToBox cf = treeToBox' cf . fmap text
+treeToBox cf = treeToBox' cf . fmap strToBox
+  where
+    strToBox= vcat left . map text . lines
 
 -- | As with 'treeToBox', but allowing for more precise control over
 --   label formatting (multiple lines, etc.).
